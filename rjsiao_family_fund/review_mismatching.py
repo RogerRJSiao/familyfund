@@ -236,31 +236,36 @@ def get_proofread_records(data_form, data_fund, arr_months, arr_funds):
     x_month = row.月
     x_rownum = row.列次
 
-    if h_stamp and b_stamp: # 個帳手動輸入(期初、收、支退)不列入判斷
-      # 比對是否存在單頭資料
-      h_query = ' Timestamp==@h_stamp and 店名==@h_shop and 申報號碼==@h_invoice and 日期==@h_date and 支付方式==@h_pay ' 
-      h_query = h_query + ' and 申報者==@h_obj and 申報順序==@h_seq '
-      h_query_df = df_formhead.query(h_query)
-      if len(h_query_df) == 0:
-        arr = modify_record_element(row, 'head', f'單頭異常!! 這一筆在 {x_fund} 帳的單頭 其中一欄與表單(單頭)輸入不一致')
-        data_mismatched_head.append(arr)
+    if h_stamp and b_stamp: # 個帳手動輸入(期初、收)不列入判斷
+      try: 
+        # 比對是否存在單頭資料
+        h_query = ' Timestamp==@h_stamp and 店名==@h_shop and 申報號碼==@h_invoice and 日期==@h_date and 支付方式==@h_pay ' 
+        h_query = h_query + ' and 申報者==@h_obj and 申報順序==@h_seq '
+        h_query_df = df_formhead.query(h_query)
+        if len(h_query_df) == 0:
+          arr = modify_record_element(row, 'head', f'單頭異常!! 這一筆在 {x_fund} 帳的單頭 其中一欄與表單(單頭)輸入不一致')
+          data_mismatched_head.append(arr)
 
-      # 比對是否存在單身資料
-      h_query = ' Timestamp==@b_stamp and 申報號碼==@b_invoice and 品項或說明==@b_item and 產品簡稱==@b_abbr and 數量==@b_qty ' 
-      h_query = h_query + ' and 計價單位==@b_unit and 折價==@b_dicount and 金額==@b_amount and 申報個帳==@b_fund '
-      h_query_df = df_formbody.query(h_query)
-      if len(h_query_df) == 0:
-        arr = modify_record_element(row, 'body', f'單身異常!! 這一筆在 {x_fund} 帳的單身 其中一欄與表單(單身)輸入不一致')
-        data_mismatched_body.append(arr)
-        # 比對單身字數：品項或說明
-        h_query = ' Timestamp==@b_stamp and 申報號碼==@b_invoice '
+        # 比對是否存在單身資料
+        h_query = ' Timestamp==@b_stamp and 申報號碼==@b_invoice and 品項或說明==@b_item and 產品簡稱==@b_abbr and 數量==@b_qty ' 
+        h_query = h_query + ' and 計價單位==@b_unit and 折價==@b_dicount and 金額==@b_amount and 申報個帳==@b_fund '
         h_query_df = df_formbody.query(h_query)
-        if len(h_query_df) >= 1:
-          len_item_form = len(b_item)
-          len_item_fund = len(h_query_df.iloc[0, 2])  # 品項或說明
-          if len_item_form != len_item_fund:
-            arr = modify_record_element(row, 'body', f'單身異常!! 品項或說明 在個帳({len_item_fund})、表單({len_item_form})字數不一致 (可檢查左右有無空白)')
-            data_mismatched_body.append(arr)
+        if len(h_query_df) == 0:
+          arr = modify_record_element(row, 'body', f'單身異常!! 這一筆在 {x_fund} 帳的單身 其中一欄與表單(單身)輸入不一致')
+          data_mismatched_body.append(arr)
+          # 比對單身字數：品項或說明
+          h_query = ' Timestamp==@b_stamp and 申報號碼==@b_invoice '
+          h_query_df = df_formbody.query(h_query)
+          if len(h_query_df) >= 1:
+            len_item_fund = len(b_item)
+            len_item_form = len(h_query_df.iloc[0, 2])  # 品項或說明
+            if len_item_form != len_item_fund:
+              arr = modify_record_element(row, 'body', f'單身異常!! 品項或說明 在個帳({len_item_fund}字)、表單({len_item_form}字)不一致 (檢查左右有無留空)')
+              data_mismatched_body.append(arr)
+      except:
+        arr = modify_record_element(row, 'common', '異常!! 單頭單身的欄名可能有異動')
+        data_mismatched_account.append(arr)
+
 
     # 驗證會計資料
     try:
@@ -289,7 +294,7 @@ def get_proofread_records(data_form, data_fund, arr_months, arr_funds):
         arr = modify_record_element(row, 'account', '異常!! 月結年月 應為當年度的當月份')
         data_mismatched_account.append(arr)
     except:
-      msg = f"{x_month}{x_fund} 最後一列下方儲存格 可能有多餘資料未刪! (或會計輸入有誤待查)"
+      msg = f"{x_month}{x_fund} 最後一列下方儲存格有多餘資料未刪，或右列會計輸入有誤、有缺漏值"
       create_today_log(msg)
 
   # 檢查跳號
@@ -323,6 +328,8 @@ def modify_record_element(row, tbl_name, msg):
   show_msg = msg
   # convert tuple (row) to list
   match tbl_name:
+    case 'common':
+      record_refined = [show_msg]
     case 'account':
       record_refined = list(row[-4:]) + [show_msg] + list(row[1:-4])
     case 'head':
