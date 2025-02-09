@@ -26,6 +26,11 @@ share/python-wheels/
 *.egg
 MANIFEST
 
+# Customized directories and files
+rjsiao_family_fund/*.json
+mydata/*.csv
+mydata/err_log/*.txt
+
 # PyInstaller
 #  Usually these files are written by a python script from a template
 #  before PyInstaller builds the exe, so as to inject date/other infos into it.
