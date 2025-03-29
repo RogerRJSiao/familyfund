@@ -27,10 +27,12 @@ share/python-wheels/
 MANIFEST
 
 # Customized directories and files
-rjsiao_family_fund/*.json
+rjsiao_family_fund/api/*.json
 rjsiao_family_fund/src_*.xlsx
 mydata/*.csv
+mydata/*.xlsx
 mydata/err_log/*.txt
+
 
 # PyInstaller
 #  Usually these files are written by a python script from a template
