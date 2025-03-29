@@ -5,7 +5,8 @@ from package_py import error_handle as eh
 # from .error_handle import create_today_log
 
 def get_google_sheets(spreadsheet_id, auth, credentials_file_path, conn_sheets):
-  # 本地端取得Google sheet權限-sheet應設定為editor
+  # credentials_file_path 引用的 json 寫在 "client_email" (讀取替身)，需要設定為 viewer 權限。
+  # spreadsheet_id 必須是 Google sheet id (長度較長)，不可為自行上傳的 .xlsx id (出現 sheets.worksheet(str) Error)。
   try:
     scopes = ["https://spreadsheets.google.com/feeds"]
     credentials = ServiceAccountCredentials.from_json_keyfile_name(credentials_file_path, scopes)
@@ -24,6 +25,7 @@ def get_google_sheets(spreadsheet_id, auth, credentials_file_path, conn_sheets):
 
   return sheets
 
+
 def get_sheet_data(sheets, filename, sheetname):
   try:
     worksheet = sheets.worksheet(sheetname)
@@ -38,3 +40,5 @@ def get_sheet_data(sheets, filename, sheetname):
     mydata = ''
   
   return mydata
+
+
