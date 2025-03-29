@@ -1,6 +1,9 @@
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 
+from package_py import google_files_process as gfp
+from package_py import error_handle as eh
+
 import csv
 import datetime
 import pandas as pd
@@ -23,19 +26,19 @@ def process_sheet_data(date):
   # 提取資料集：表單form-單頭、單身
   conn_sheets = "單頭單身"
   access = set_src_permission(curr_yr, '', 'form')
-  sheets = get_google_sheets(access['sheet_id'], access['auth'], access['credential'], conn_sheets)
+  sheets = gfp.get_google_sheets(access['sheet_id'], access['auth'], access['credential'], conn_sheets)
   if not sheets:
     msg = f"檔案-{conn_sheets} 連線異常，無資料!!!"
-    create_today_log(msg)
+    eh.create_today_log(msg)
     return
 
   sheet_name = "單頭"  
-  mydata_form_head = get_sheet_data(sheets, conn_sheets, sheet_name)
+  mydata_form_head = gfp.get_sheet_data(sheets, conn_sheets, sheet_name)
   sheet_name = "單身"
-  mydata_form_body = get_sheet_data(sheets, conn_sheets, sheet_name)
+  mydata_form_body = gfp.get_sheet_data(sheets, conn_sheets, sheet_name)
   if not mydata_form_head or not mydata_form_body:
     msg = f"檔案-{conn_sheets} 無資料!!!"
-    create_today_log(msg)
+    eh.create_today_log(msg)
     return
 
   # 標記form資料集各列來源
@@ -51,18 +54,18 @@ def process_sheet_data(date):
       print(f'Now is fetching data from: {month}{fund}.')
       conn_sheets = fund + "帳" # 檔案名稱：帳別
       access = set_src_permission(curr_yr, month, fund)
-      sheets = get_google_sheets(access['sheet_id'], access['auth'], access['credential'], conn_sheets)
+      sheets = gfp.get_google_sheets(access['sheet_id'], access['auth'], access['credential'], conn_sheets)
       if not sheets:
         msg = f"檔案-{conn_sheets} 活頁-{month} 連線異常，無資料!!!"
-        create_today_log(msg)
+        eh.create_today_log(msg)
         reviewed['error'].append(conn_sheets)
         continue
       
       sheet_name = month # 活頁名稱：月別 
-      arr = get_sheet_data(sheets, conn_sheets, sheet_name)
+      arr = gfp.get_sheet_data(sheets, conn_sheets, sheet_name)
       if not arr:
         msg = f"檔案-{conn_sheets} 活頁-{month} 無資料!!!"
-        create_today_log(msg)
+        eh.create_today_log(msg)
         reviewed['error'].append(month + fund)
         continue
 
@@ -84,37 +87,25 @@ def process_sheet_data(date):
   return mydata, reviewed
 
 
-def create_today_log(msg):
-  # 格式化日期時間為字串
-  now = datetime.datetime.now()
-  formatted_date = now.strftime("%Y%m%d")
-  formatted_datetime = now.strftime("%Y%m%d_%H%M%S")
-
-  # 設定儲存路徑、檔名(用日期戳)
-  file_name = '家庭記帳比對_err_' + formatted_date + '.txt'
-  file_path = "../mydata/err_log/" + file_name
-
-  errmsg = f'{formatted_datetime} | ERROR: {msg}'
-  print(errmsg)
-  f = open(file_path, "a")  #a:追加,w:覆寫,r:讀取
-  f.write(errmsg + "\n")
-  f.close()
-
-
 def set_src_permission(year, month, src):
-  credentials = 'credentials_family_fund_form.json'
+  # 注意檔案路徑，相對於當前執行的 py 檔案位置
   file_google_sheetid = 'src_data_fund.xlsx'
+  credentials = 'api/credentials_family_fund_form.json'
   
   # 讀取對照檔
   sheet_name = 'Y' + str(year)
   df_src = pd.read_excel(file_google_sheetid, sheet_name=sheet_name)
+  # 讀取替身
   auth = df_src[df_src['唯一值'] == 'auth']['Google_sheet_id'].values[0]
-
+  # 讀取 Google Sheet ID (不可以是 .xlsx id)
   match src:
     case 'form':  #對照組=單頭/單身
       sheet_id = df_src[df_src['唯一值'] == 'form']['Google_sheet_id'].values[0]
     case 'A'|'B'|'C'|'D'|'E'|'Z':  #即時檔
       key = str(year) + src
+      sheet_id = df_src[df_src['唯一值'] == key]['Google_sheet_id'].values[0]
+    case 'monthly':  #月結檔
+      key = str(year) + str(month)  
       sheet_id = df_src[df_src['唯一值'] == key]['Google_sheet_id'].values[0]
     case _:
       sheet_id = ''
@@ -122,45 +113,7 @@ def set_src_permission(year, month, src):
       credentials = ''
 
   # print(f"auth: {auth}, sheet_id: {sheet_id}, credentials: {credentials}")
-
   return {'sheet_id': sheet_id, 'auth': auth, 'credential': credentials}
-
-
-def get_google_sheets(spreadsheet_id, auth, credentials_file_path, conn_sheets):
-  # 本地端取得Google sheet權限-sheet應設定為editor
-  try:
-    scopes = ["https://spreadsheets.google.com/feeds"]
-    credentials = ServiceAccountCredentials.from_json_keyfile_name(credentials_file_path, scopes)
-    client = gspread.authorize(credentials)
-    sheets = client.open_by_key(spreadsheet_id)
-  except:
-    errmsg = f'Google sheets 檔案-{conn_sheets} 連線發生異常，請先檢查：'
-    create_today_log(errmsg)
-    errmsg = f'1. 檔案-{conn_sheets} 的 google sheet id 是否為【{spreadsheet_id}】？'
-    create_today_log(errmsg)
-    errmsg = f'2. 是否已把 {auth} 以檢視者 (viewer) 權限加入這個 google sheet 檔案-{conn_sheets}？'
-    create_today_log(errmsg)
-    errmsg = f'3. 憑證 json ({credentials_file_path}) 是否放在本地端指定資料夾？'
-    create_today_log(errmsg)
-    sheets = ''
-
-  return sheets
-
-
-def get_sheet_data(sheets, filename, sheetname):
-  try:
-    worksheet = sheets.worksheet(sheetname)
-    mydata = worksheet.get_all_records()
-  except:
-    worksheet_list = sheets.worksheets()
-    if sheetname in worksheet_list:
-      errmsg = f'下載問題! 請確認 Google sheet 檔案-{filename} 活頁-{sheetname} 內的所有欄名唯一沒有重複名稱，且右側空白處無任何資料。'
-    else:
-      errmsg = f'下載問題! 請確認 Google sheet 檔案-{filename} 活頁-{sheetname} 是否存在'
-    create_today_log(errmsg)
-    mydata = ''
-  
-  return mydata
 
 
 def tag_each_record(data, year, month, fund):
@@ -292,7 +245,7 @@ def get_proofread_records(data_form, data_fund, arr_months, arr_funds):
         data_mismatched_account.append(arr)
     except:
       msg = f"{x_month}{x_fund} 最後一列下方儲存格有多餘資料未刪，或右列會計輸入有誤、有缺漏值"
-      create_today_log(msg)
+      eh.create_today_log(msg)
 
   # 檢查跳號
   data_mismatched_serial = [] # 存取跳號流水號
@@ -364,7 +317,7 @@ if __name__ == "__main__":
 
   if not data:
     msg = f"無法取得資料!!!"
-    create_today_log(msg)
+    eh.create_today_log(msg)
   else:
     # 格式化日期時間為字串
     now = datetime.datetime.now()
