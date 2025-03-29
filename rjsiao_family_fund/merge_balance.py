@@ -35,6 +35,19 @@ def set_src_permission(year, month, src):
   # print(f"auth: {auth}, \nsheet_id: {sheet_id}, \ncredentials: {credentials}")
   return {'sheet_id': sheet_id, 'auth': auth, 'credential': credentials}
 
+def processing_monthly_amount(df_mydata, tbl_fmt, method):
+  df_calculated = pd.DataFrame()
+  match method:
+    case 'agg':       # 聚合函數
+      df_calculated = df_mydata.groupby(tbl_fmt[0:2], as_index=False).agg({tbl_fmt[2]: 'sum'})
+      df_calculated = df_calculated.sort_values(tbl_fmt[1],ascending=True)
+    case 'pvt'|'_':   # 樞紐分析
+      df_mydata = df_mydata[tbl_fmt]
+      df_calculated = df_mydata.pivot_table(values=tbl_fmt[2], index=tbl_fmt[0], columns=tbl_fmt[1], 
+                                            aggfunc='sum', fill_value=0, margins=True, margins_name='小計') #缺值補0，加小計
+  
+  # print(df_calculated)
+  return df_calculated
 
 # MAIN
 if __name__ == "__main__":
@@ -105,11 +118,23 @@ if __name__ == "__main__":
     df_mydata = df_mydata.sort_values(by=['申報個帳','月結年月','核對處理日','認列碼'], 
                                       ascending=[True,True,True,True], ignore_index=True)
     print(f"資料總計(列): {len(df_mydata)}")
+    
+    # 計算月結年月x收支
+    tbl_fmt = ['收支','月結年月','認列金額'] #[列,欄,值]
+    df_mydata_rpt1 = processing_monthly_amount(df_mydata_ori, tbl_fmt, 'pvt')
+    # 計算月結年月x中分類
+    tbl_fmt = ['中分類','月結年月','認列金額'] #[列,欄,值]
+    df_mydata_rpt2 = processing_monthly_amount(df_mydata_ori, tbl_fmt, 'pvt')
 
-    # 下載資料集：已月結彙總檔
+    # 準備路徑檔名
     min_month = arr_yyyymm[0]
     max_month = arr_yyyymm[-1]
     file_name_output = f"家庭記帳彙總_{min_month}_{max_month}_更新{formatted_dt}.xlsx"
     file_path = "../mydata/" + file_name_output
-    df_mydata.to_excel(file_path, sheet_name='總表', index=False)
+    # 將資料集寫檔至指定活頁
+    with pd.ExcelWriter(file_path) as writer:
+      df_mydata.to_excel(writer, sheet_name='總表', index=False)
+      df_mydata_rpt1.to_excel(writer, sheet_name='每月收支別', index=True)
+      df_mydata_rpt2.to_excel(writer, sheet_name='每月中分類別', index=True)
+
     print(f"檔案-{file_name_output} 已下載完成!")
