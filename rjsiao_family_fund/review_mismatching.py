@@ -102,29 +102,26 @@ def create_today_log(msg):
 
 
 def set_src_permission(year, month, src):
-  ## PermissionError
-  ## set editor for pj-family-fund@lunar-alpha-449306-p3.iam.gserviceaccount.com
   credentials = 'credentials_family_fund_form.json'
-  auth = 'pj-family-fund@lunar-alpha-449306-p3.iam.gserviceaccount.com'
+  file_google_sheetid = 'src_data_fund.xlsx'
+  
+  # 讀取對照檔
+  sheet_name = 'Y' + str(year)
+  df_src = pd.read_excel(file_google_sheetid, sheet_name=sheet_name)
+  auth = df_src[df_src['唯一值'] == 'auth']['Google_sheet_id'].values[0]
+
   match src:
     case 'form':  #對照組=單頭/單身
-      sheet_id = '1sB4M4riNTum3e0qYBtSU14MforALAj92yHY8Nr-JGYE'
-    case 'A':
-      sheet_id = '1uc9QrNsJVbX1IIALaOF0BncaG2jBkpgrqTJBGUUvFmc'
-    case 'B':
-      sheet_id = '1zs1gDNHgbYthevSmAUPl20Z7HyaWiNpHCV534h5hwXg'
-    case 'C':
-      sheet_id = '1Q-jkyfiFCME2loEvS6bZJjXHP9HaliUiTodGgVg_HLs'
-    case 'D':
-      sheet_id = '1s-qKVbjrX2b2Zy44KYGC-QI5ISbvt7e2jueZyikr24c'    
-    case 'E':
-      sheet_id = '15dldevE7YkqYMAiS1eC4mT8CcZ4qtsk1cHZOgbStU0Y'    
-    case 'Z':
-      sheet_id = '1EXg-OtfyZHpNUD3mOE_hY8L49MdRxtiiQbLxotFesSE'
+      sheet_id = df_src[df_src['唯一值'] == 'form']['Google_sheet_id'].values[0]
+    case 'A'|'B'|'C'|'D'|'E'|'Z':  #即時檔
+      key = str(year) + src
+      sheet_id = df_src[df_src['唯一值'] == key]['Google_sheet_id'].values[0]
     case _:
       sheet_id = ''
       auth = ''
       credentials = ''
+
+  # print(f"auth: {auth}, sheet_id: {sheet_id}, credentials: {credentials}")
 
   return {'sheet_id': sheet_id, 'auth': auth, 'credential': credentials}
 

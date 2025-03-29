@@ -28,6 +28,7 @@ MANIFEST
 
 # Customized directories and files
 rjsiao_family_fund/*.json
+rjsiao_family_fund/src_*.xlsx
 mydata/*.csv
 mydata/err_log/*.txt
 
