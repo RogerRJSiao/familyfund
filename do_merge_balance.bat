@@ -3,7 +3,6 @@
 :: Change directory to the project folder
 cd D:\your-project-name\familyfund\rjsiao_family_fund
 
-
 :: Get the current date and extract the current year and month
 for /f "tokens=2 delims==" %%I in ('"wmic OS Get localdatetime /value"') do set datetime=%%I
 set curr_year=%datetime:~0,4%
@@ -30,7 +29,7 @@ if %month1% gtr %month2% (
 echo "yyyy-mm Range for download: from %month1% to %month2%"
 
 :: Call the Python script with the two user inputs as arguments
-python merge_fund_balance.py %month1% %month2%
+python merge_balance.py %month1% %month2%
 
 :: Pause the execution so the user can see the results
 pause
