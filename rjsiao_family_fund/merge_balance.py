@@ -9,7 +9,7 @@ import pandas as pd
 
 def set_src_permission(year, month, src):
   # 注意檔案路徑，相對於當前執行的 py 檔案位置
-  file_google_sheetid = '../src_data_fund.xlsx'
+  file_google_sheetid = 'src_data_fund.xlsx'
   credentials = 'api/rogersiaoaiot-myfamilyfund-250329.json'
   
   # 讀取對照檔
