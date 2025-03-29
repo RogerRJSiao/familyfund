@@ -6,11 +6,13 @@ from package_py import date_time_process as dtp
 
 import datetime as dt
 import pandas as pd
+from itertools import chain
+import math
 
 def set_src_permission(year, month, src):
   # 注意檔案路徑，相對於當前執行的 py 檔案位置
   file_google_sheetid = 'src_data_fund.xlsx'
-  credentials = 'api/rogersiaoaiot-myfamilyfund-250329.json'
+  credentials = 'api/credentials_family_fund_form.json'
   
   # 讀取對照檔
   sheet_name = 'Y' + str(year)
@@ -42,10 +44,11 @@ def processing_monthly_amount(df_mydata, tbl_fmt, method):
       df_calculated = df_mydata.groupby(tbl_fmt[0:2], as_index=False).agg({tbl_fmt[2]: 'sum'})
       df_calculated = df_calculated.sort_values(tbl_fmt[1],ascending=True)
     case 'pvt'|'_':   # 樞紐分析
-      df_mydata = df_mydata[tbl_fmt]
+      flattened = list(chain.from_iterable([x if isinstance(x, list) else [x] for x in tbl_fmt]))
+      df_mydata = df_mydata[flattened]
       df_calculated = df_mydata.pivot_table(values=tbl_fmt[2], index=tbl_fmt[0], columns=tbl_fmt[1], 
-                                            aggfunc='sum', fill_value=0, margins=True, margins_name='小計') #缺值補0，加小計
-  
+                                             aggfunc='sum', fill_value=0, margins=True, margins_name='小計') #缺值補0，加小計
+      df_calculated = df_calculated.reset_index() # 將index轉為欄位
   # print(df_calculated)
   return df_calculated
 
@@ -119,9 +122,12 @@ if __name__ == "__main__":
                                       ascending=[True,True,True,True], ignore_index=True)
     print(f"資料總計(列): {len(df_mydata)}")
     
-    # 計算月結年月x收支
-    tbl_fmt = ['收支','月結年月','認列金額'] #[列,欄,值]
+    # 計算月結年月x收支和申報個帳
+    tbl_fmt = [['收支','申報個帳'],'月結年月','認列金額'] #[[列1,列2],欄,值]
     df_mydata_rpt1 = processing_monthly_amount(df_mydata_ori, tbl_fmt, 'pvt')
+    df_mydata_rpt1 = df_mydata_rpt1[df_mydata_rpt1['申報個帳']!='']
+    df_mydata_rpt1.loc[df_mydata_rpt1['收支']=='期初','小計'] = math.nan # 期初不需要小計
+    df_mydata_rpt1 = df_mydata_rpt1.sort_values(by=['申報個帳','收支'],ascending=[True,False], ignore_index=True)
     # 計算月結年月x中分類
     tbl_fmt = ['中分類','月結年月','認列金額'] #[列,欄,值]
     df_mydata_rpt2 = processing_monthly_amount(df_mydata_ori, tbl_fmt, 'pvt')
@@ -134,7 +140,7 @@ if __name__ == "__main__":
     # 將資料集寫檔至指定活頁
     with pd.ExcelWriter(file_path) as writer:
       df_mydata.to_excel(writer, sheet_name='總表', index=False)
-      df_mydata_rpt1.to_excel(writer, sheet_name='每月收支別', index=True)
-      df_mydata_rpt2.to_excel(writer, sheet_name='每月中分類別', index=True)
+      df_mydata_rpt1.to_excel(writer, sheet_name='每月個帳收支別', index=False)
+      df_mydata_rpt2.to_excel(writer, sheet_name='每月中分類別', index=False)
 
     print(f"檔案-{file_name_output} 已下載完成!")
