@@ -1,6 +1,3 @@
-import gspread
-from oauth2client.service_account import ServiceAccountCredentials
-
 from package_py import google_files_process as gfp
 from package_py import error_handle as eh
 
